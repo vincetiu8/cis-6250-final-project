@@ -72,7 +72,7 @@ modern neural networks—often containing millions or billions of parameters tra
 comparatively modest datasets—generalize remarkably well in practice. This disconnect between
 theory and practice represents one of the most important open problems in machine learning.
 
-\textbf{The classical framework fails spectacularly.}
+\textbf{The classical framework falls short.}
 Traditional generalization bounds take the form
 \begin{equation}
   \text{Test Error} \leq \text{Train Error} + O\left(\sqrt{\frac{\text{Complexity}}{n}}\right),
@@ -85,18 +85,22 @@ This review synthesizes four foundational papers that collectively address this 
 chronologically to trace the evolution of thought:
 \begin{enumerate}
   \item
-        \textbf{The Puzzle:} Zhang et al.~\cite{zhang2017understanding} establish the empirical
-        foundation by proving standard architectures can perfectly fit random labels.
+        \textbf{The Puzzle (Memorization vs. Generalization):} Zhang et
+        al.~\cite{zhang2017understanding} establish the empirical foundation by proving standard
+        architectures can perfectly fit random labels.
   \item
-        \textbf{The Existence Proof:} Dziugaite \& Roy~\cite{dziugaite2017computing} immediately
-        counter the notion that theory is helpless by computing nonvacuous PAC-Bayes bounds.
+        \textbf{The Existence Proof (Nonvacuous Bounds):} Dziugaite \&
+        Roy~\cite{dziugaite2017computing} immediately counter the notion that theory is helpless by
+        computing nonvacuous PAC-Bayes bounds.
   \item
-        \textbf{The Mechanism:} Neyshabur et al.~\cite{neyshabur2017exploring} investigate the
-        specific complexity measures (norm and sharpness) that drive this generalization.
+        \textbf{The Mechanism (Implicit Bias via Norm/Flatness):} Neyshabur et
+        al.~\cite{neyshabur2017exploring} investigate the specific complexity measures (norm and
+        sharpness) that drive this generalization.
   \item
-        \textbf{The Unification:} Belkin et al.~\cite{belkin2019reconciling} provide the global
-        phenomenological framework of "double descent" that reconciles Zhang's interpolation with
-        the generalization analyzed by Dziugaite and Neyshabur.
+        \textbf{The Unification (Double Descent Framework):} Belkin et
+        al.~\cite{belkin2019reconciling} provide the global phenomenological framework of "double
+        descent" that reconciles Zhang's interpolation with the generalization analyzed by Dziugaite
+        and Neyshabur.
 \end{enumerate}
 
 \section{Rethinking generalization through the lens of memorization}
@@ -152,7 +156,9 @@ randomized.
 Yet, even in these intermediate states, the networks maintain the ability to fit the training set
 perfectly (zero training error). This suggests that neural networks simultaneously capture the
 remaining signal in the data while brute-force memorizing the noisy instances using the remaining
-capacity.
+capacity. The counterintuitive part is not necessarily that overparameterized models can memorize—that follows
+from their capacity—but that they often continue to generalize on clean data despite this ability to
+fit noise.
 
 \subsection{The insufficiency of explicit regularization}
 
@@ -176,7 +182,8 @@ parameters that boost performance rather than fundamental constraints on capacit
         the 59.80\% baseline. This indicates that domain-specific data transformations are
         significantly more powerful than imposing norm constraints on weights. However, even data
         augmentation does not prevent overfitting to noise; if run for sufficient epochs, models
-        with augmentation still fit random labels.
+        with augmentation still fit random labels (undesirably fitting on noise with no
+        predictive signal).
   \item
         \textbf{Batch Normalization:} The authors note that while Batch Normalization stabilizes
         learning dynamics, its impact on generalization performance is marginal (3-4\% on CIFAR10)
@@ -199,7 +206,8 @@ If initialized at zero, SGD updates are always linear combinations of the data p
 constraining the weight vector $w$ to lie in the span of the data. Consequently, SGD converges
 specifically to the minimum $l_2$-norm solution among the infinite global minima. This implies that
 the algorithm itself biases the solution toward a specific "simple" model, effectively solving the
-kernel equation $XX^T\alpha = y$.
+kernel equation $XX^T\alpha = y$. In other words, SGD supplies implicit regularization even when
+explicit penalties fail to constrain capacity.
 
 The authors also address the concept of curvature as a quality metric. While sharpness of minima is
 often cited as a predictor of generalization, the authors point out that in the linear case, the
@@ -272,7 +280,7 @@ generalization in the deep learning regime using standard tools.
 
 \subsection{Resolving the "Vacuous Bound" Challenge}
 
-Dziugaite \& Roy~\cite{dziugaite2017computing} refute the necessity of this pessimism by computing
+Dziugaite \& Roy~\cite{dziugaite2017computing} refute this pessimism by computing
 the first explicit, nonvacuous numerical bounds for trained neural networks in this regime. Their
 experiments on binary MNIST demonstrate:
 
@@ -292,7 +300,7 @@ the bound is \textbf{nonvacuous} ($<1$). This serves as an existence proof that 
 architecture alone does not dictate generalization; rather, the geometry of the specific solution
 found by SGD controls the error.
 
-\subsection{The PAC-Bayes framework as an optimization problem}
+\subsection{Nonvacuous bounds via PAC-Bayes optimization}
 
 The authors utilize the McAllester/Langford-Seeger PAC-Bayes bound. This framework bounds the
 generalization error of a stochastic classifier (drawn from a posterior distribution $Q$) based on
@@ -322,7 +330,8 @@ into a constrained optimization problem:
         $P$. Rather than centering the prior at zero (which assumes good solutions are near the
         origin), they center $P$ at the \textbf{random initialization} $w_0$. This accounts for the
         fact that SGD does not travel infinitely far from its starting point and helps break the
-        permutation symmetries inherent in neural networks.
+        permutation symmetries inherent in neural networks—the property that reordering neurons
+        within a hidden layer preserves the network's function.
 \end{enumerate}
 
 \subsection{Operationalizing Flat Minima and MDL}
@@ -392,7 +401,8 @@ Neyshabur et al.'s~\cite{neyshabur2017exploring} reinforce the consensus establi
 al.~\cite{zhang2017understanding} that implicit regularization is the primary driver of
 generalization in deep learning. Since the architecture alone (and thus parameter count) allows for
 massive overfitting to noise, the algorithm must be biased toward a specific subset of solutions
-that generalize.
+that generalize. This ties the "flat vs. sharp minima" discussion to solution geometry: SGD must
+land on functions that are stable to perturbations, not merely ones that achieve low empirical loss.
 
 To identify this bias, the authors propose that any valid complexity measure must satisfy two
 empirical conditions derived directly from the "generalization puzzle" posed by Zhang et
@@ -415,7 +425,7 @@ al.~\cite{zhang2017understanding}:
 
 \subsection{The Necessity of Scale Invariance}
 
-A critical contribution of this work is the rigorous critique of "sharpness" as a standalone
+A critical contribution of this work is its critique of "sharpness" as a standalone
 measure. While Dziugaite \& Roy~\cite{dziugaite2017computing} appealed to "flat minima" to
 explain generalization, Neyshabur et al. demonstrate that sharpness is inherently ambiguous in ReLU
 networks because it is sensitive to simple re-parameterizations.
@@ -530,19 +540,18 @@ Zhang et al.~\cite{zhang2017understanding}'s findings:
 \section{Reconciling Interpolation: The Double Descent}
 
 While the previous papers analyzed \emph{why} specific solutions generalize (via data-dependent
-bounds and norms), they left open the question of why the optimization process doesn't explode when
-passing through the regime where the model capacity exactly matches the dataset size ($n \approx
- d$). Belkin et al.'s 2019 paper "Reconciling Modern Machine Learning Practice and the
-Bias-Variance Trade-off"~\cite{belkin2019reconciling} provides the overarching phenomenological
-framework that unifies these observations into a single coherent narrative.
+bounds and norms), they left open the question of why training remains stable when a model is sized
+right at the interpolation threshold ($n \approx d$). Belkin et al.'s 2019 paper "Reconciling Modern
+Machine Learning Practice and the Bias-Variance Trade-off"~\cite{belkin2019reconciling} provides
+the overarching framework that unifies these observations into a single coherent narrative.
 
 \subsection{The Double Descent Curve}
 
 Belkin et al.~\cite{belkin2019reconciling} introduce the \textbf{double descent curve}, a unified
 performance curve that
 subsumes both the classical U-shaped bias-variance trade-off and the modern "bigger is better" deep
-learning regime. They demonstrate that the test error behavior is non-monotonic and distinct across
-three specific regimes:
+learning regime. They demonstrate that the test error behavior is non-monotonic with respect to the
+number of parameters and distinct across three specific regimes:
 
 \begin{enumerate}
   \item
@@ -607,9 +616,7 @@ papers into a cohesive theory:
         \textbf{Connecting to Dziugaite \& Roy:} Dziugaite \& Roy~\cite{dziugaite2017computing} identified "flat minima" as the key to generalization. In Belkin's framework, the minimum norm solution in a high-dimensional space corresponds to the "flattest" or smoothest interpolant. By expanding the parameter space ($d \gg n$), we allow the optimizer to access these flatter, more robust solutions that were inaccessible in the constrained, critical regime.
 \end{itemize}
 
-\subsection{Why Overparameterization Helps}
-
-Belkin et al.~\cite{belkin2019reconciling} essentially invert the classical wisdom.
+Taken together, double descent inverts the classical wisdom.
 Overparameterization is not a liability to be bounded (as Zhang et al.'s initial puzzle suggested),
 but a feature that enables the finding of smoother (lower norm) interpolants. The "catastrophic
 overfitting" predicted by classical theory occurs only at the interpolation threshold ($d \approx
@@ -622,8 +629,7 @@ rigidly at zero.
 
 While the four foundational works synthesized above established the core pillars of modern
 generalization theory, they left several critical questions unanswered. Recent research has focused
-on rigorousizing these phenomenological observations and translating them into practical
-algorithms.
+on formalizing these observations and translating them into practical algorithms.
 
 \subsection{Formalizing Implicit Bias}
 
@@ -672,9 +678,9 @@ dismantled the utility of architecture-dependent complexity measures. Dziugaite 
 Roy~\cite{dziugaite2017computing} proved that theory was not dead, but needed to be data-dependent
 and algorithmic (PAC-Bayes). Neyshabur et al.'s~\cite{neyshabur2017exploring} identified the
 specific geometric properties (norm and sharpness) that drive this data dependence. Finally, Belkin
-et al.~\cite{belkin2019reconciling} placed these insights into a unified phenomenological
-framework, showing that the "generalization puzzle" is actually a predictable property of
-minimum-norm interpolants in the overparameterized regime.
+et al.~\cite{belkin2019reconciling} placed these insights into a unified framework, showing that the
+"generalization puzzle" is actually a predictable property of minimum-norm interpolants in the
+overparameterized regime.
 
 The synthesis of these works confirms that generalization in deep learning is not a property of the
 model class alone, but of a combination between \textbf{architecture, data, and the algorithm}.
