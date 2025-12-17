@@ -174,7 +174,7 @@ parameters that boost performance rather than fundamental constraints on capacit
         \textbf{Weight Decay and Dropout:} While these techniques ($l_2$ regularization) can
         improve validation accuracy, they are neither necessary for generalization nor sufficient
         to prevent the memorization of random labels. For instance, on ImageNet the Inception model
-        can reach around 90\% top-1 accuracy on random labels even with explicit regularizers enabled.
+        can reach around 90\% \emph{training} top-1 accuracy on random labels even with explicit regularizers enabled.
         This indicates that the "effective Rademacher complexity" of the hypothesis class remains high even under these
         constraints.
   \item
@@ -354,7 +354,7 @@ parameter precision are, in a precise sense, more compressible relative to the p
     \textbf{Experiment}   & \textbf{Params} & \textbf{SNN Test Error} & \textbf{PAC-Bayes Bound}  & \textbf{KL Divergence} \\
     \midrule
     True Labels (T-600)   & 471K            & 3.4\%                   & \textbf{16.1\%}           & \textbf{5,144}         \\
-    True Labels (T-1200$^2$)  & 2.38M       & 3.5\%                   & \textbf{22.3\%}           & 8,558                  \\
+    True Labels (T-(1200,1200))  & 2.38M       & 3.5\%                   & \textbf{22.3\%}           & 8,558                  \\
     \midrule
     Random Labels (R-600) & 472K            & 50.3\%                  & \textbf{135.2\% (vacuous)} & \textbf{201,131}       \\
     \bottomrule
@@ -566,8 +566,7 @@ number of parameters and distinct across three specific regimes:
         size ($d \gg n$), the risk decreases again—often below the best performance of the
         classical regime. This is the "double descent." The authors show this phenomenon is
         universal, appearing not just in Neural Networks, but also in Random Forests and Random
-        Fourier Features. They also report related behavior for $L_2$ boosting / AdaBoost in
-        supplementary experiments.
+        Fourier Features.
 \end{enumerate}
 
 \subsection{The Mechanism: Implicit Regularization via Minimum Norm}
