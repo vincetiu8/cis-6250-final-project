@@ -30,6 +30,7 @@
 \newtheorem{remark}{Remark}
 
 \DeclareMathOperator{\KL}{KL}
+\DeclareMathOperator{\kl}{kl}
 \DeclareMathOperator{\E}{\mathbb{E}}
 \DeclareMathOperator{\Var}{Var}
 
@@ -173,7 +174,7 @@ parameters that boost performance rather than fundamental constraints on capacit
         \textbf{Weight Decay and Dropout:} While these techniques ($l_2$ regularization) can
         improve validation accuracy, they are neither necessary for generalization nor sufficient
         to prevent the memorization of random labels. For instance, Inception V3 fits random labels
-        to over 90\% accuracy even with explicit regularizers enabled. This indicates that the
+        to around 90\% accuracy even with explicit regularizers enabled. This indicates that the
         "effective Rademacher complexity" of the hypothesis class remains high even under these
         constraints.
   \item
@@ -211,7 +212,7 @@ explicit penalties fail to constrain capacity.
 
 The authors also address the concept of curvature as a quality metric. While sharpness of minima is
 often cited as a predictor of generalization, the authors point out that in the linear case, the
-Hessian of the loss function is degenerate and identical for \textit{all} global optimal solutions.
+Hessian of the loss function is degenerate and identical for \textit{all} globally optimal solutions.
 Therefore, curvature cannot distinguish between a solution that generalizes well and one that
 overfits.
 
@@ -240,7 +241,7 @@ expressivity:
 \end{theorem}
 
 This theorem proves that simple depth-2 networks already possess universal finite-sample
-expressivity as soon as the parameter count exceeds twice the sample size. The construction relies
+expressivity with $2n + d$ parameters. The construction relies
 on mapping the $d$-dimensional input points onto a single axis and utilizing the ReLU activation to
 create a "gating" mechanism that fits specific targets. Crucially, this result contrasts with
 uniform convergence bounds, which would typically require sample sizes exponential in the network
@@ -307,7 +308,7 @@ generalization error of a stochastic classifier (drawn from a posterior distribu
 its Kullback-Leibler (KL) divergence from a fixed prior distribution $P$.
 
 \begin{equation}
-  \text{KL}(\hat{e}(Q, S_m) \| e(Q)) \leq \frac{\text{KL}(Q\|P) + \log(m/\delta)}{m-1}
+  \kl(\hat{e}(Q, S_m) \| e(Q)) \leq \frac{\KL(Q\|P) + \log(m/\delta)}{m-1}
 \end{equation}
 
 Crucially, the authors treat this bound not merely as a metric for post-hoc analysis, but as a
@@ -322,9 +323,8 @@ into a constrained optimization problem:
   \item
         \textbf{Bound Minimization:} Instead of minimizing training error alone, they minimize the
         PAC-Bayes upper bound directly using stochastic gradient descent. This creates a trade-off:
-        the optimizer seeks weights $w$ with low error (minimizing the first term) while
-        simultaneously inflating the variance $s$ to stay close to the prior $P$ (minimizing the KL
-        penalty).
+        the optimizer seeks weights $w$ with low error while choosing the variance $s$ to trade off
+        empirical robustness under perturbations against the KL penalty.
   \item
         \textbf{The Choice of Prior:} A critical innovation is the choice of the prior distribution
         $P$. Rather than centering the prior at zero (which assumes good solutions are near the
@@ -355,7 +355,7 @@ prior, resulting in a low $\text{KL}(Q\|P)$ term.
     \textbf{Experiment}   & \textbf{Params} & \textbf{SNN Test Error} & \textbf{PAC-Bayes Bound}  & \textbf{KL Divergence} \\
     \midrule
     True Labels (T-600)   & 471K            & 3.4\%                   & \textbf{16.1\%}           & \textbf{5,144}         \\
-    True Labels (T-1200)  & 2.38M           & 3.5\%                   & \textbf{22.3\%}           & 8,558                  \\
+    True Labels (T-1200$^2$)  & 2.38M           & 3.5\%                   & \textbf{22.3\%}           & 8,558                  \\
     \midrule
     Random Labels (R-600) & 472K            & 50.3\%                  & \textbf{Vacuous (>100\%)} & \textbf{201,131}       \\
     \bottomrule
@@ -397,7 +397,7 @@ Dziugaite \& Roy operationalized via PAC-Bayes variance—with the classical the
 
 \subsection{Beyond Architecture: Data-Dependent Measures}
 
-Neyshabur et al.'s~\cite{neyshabur2017exploring} reinforce the consensus established by Zhang et
+Neyshabur et al.~\cite{neyshabur2017exploring} reinforce the consensus established by Zhang et
 al.~\cite{zhang2017understanding} that implicit regularization is the primary driver of
 generalization in deep learning. Since the architecture alone (and thus parameter count) allows for
 massive overfitting to noise, the algorithm must be biased toward a specific subset of solutions
@@ -473,9 +473,9 @@ empirical generalization:
         weights from input to output.
 \end{itemize}
 
-Crucially, empirical evaluations reveal that the \textbf{$L_2$ (Frobenius) norm} and the
-\textbf{$L_1$-path norm} provide bounds that are essentially \textbf{independent of network width}.
-This offers a theoretical justification for the "finite sample expressivity" observations in Zhang
+Crucially, empirical evaluations suggest that the \textbf{$L_2$ (Frobenius) norm} and the
+\textbf{$L_1$-path norm} can remain relatively stable as network width increases. This offers a
+theoretical justification for the "finite sample expressivity" observations in Zhang
 et al.\cite{zhang2017understanding}: adding more hidden units increases the potential parameter
 space (VC dimension), but it does not necessarily increase the norm-based complexity of the
 solution actually found by SGD. The optimization algorithm implicitly constrains the solution to a
@@ -522,18 +522,18 @@ on datasets containing a fixed number of true labels mixed with an increasing pe
 labels. All networks achieve zero training error (global minima), but their test error varies
 drastically as the noise level increases.
 
-The results confirm that while spectral norm fails to predict the generalization gap in these
-scenarios (often remaining constant despite degrading test performance), the \textbf{PAC-Bayes
- measure (combining norm and sharpness)} successfully correlates with test error. This explains
-Zhang et al.~\cite{zhang2017understanding}'s findings:
+The results suggest that while spectral norm can fail to predict the generalization gap in these
+scenarios (often remaining constant despite degrading test performance), joint measures (such as
+PAC-Bayes-style combinations of norm and sharpness) can track the trend in many cases, but can also
+fail in some settings. This aligns with Zhang et al.~\cite{zhang2017understanding}'s findings:
 
 \begin{itemize}
   \item
-        \textbf{On Random Labels:} SGD finds a solution that is "sharp" relative to its norm. To
+        \textbf{On Random Labels:} SGD can find a solution that is "sharp" relative to its norm. To
         fit noise, the weights must be large or the minimum extremely narrow, causing the PAC-Bayes
         ratio $\frac{\|w\|}{\sigma}$ to explode.
   \item
-        \textbf{On True Labels:} SGD finds a solution with low norm and high robustness (flatness),
+        \textbf{On True Labels:} SGD can find a solution with low norm and high robustness (flatness),
         yielding a tight, nonvacuous bound.
 \end{itemize}
 
@@ -560,8 +560,8 @@ number of parameters and distinct across three specific regimes:
         variance. The goal is to find the "sweet spot" before overfitting occurs.
   \item
         \textbf{The Critical Regime (Interpolation Threshold):} As capacity approaches the number
-        of data points ($d \approx n$), the risk peaks, often dramatically. Here, there is
-        effectively only one unique solution that fits the training data. Because the model has
+        of data points ($d \approx n$), the risk peaks, often dramatically. Here, the set of
+        interpolating solutions can be particularly ill-conditioned or unstable. Because the model has
         just barely enough capacity to fit the random noise in the labels, the resulting function
         must oscillate wildly, leading to massive coefficient sizes, high variance, and poor
         generalization. Mathematically, this corresponds to the regime where the condition number
@@ -578,7 +578,7 @@ number of parameters and distinct across three specific regimes:
 
 \subsection{The Mechanism: Implicit Regularization via Minimum Norm}
 
-Why does increasing capacity reduces error in the modern regime? The authors argue that the
+Why does increasing capacity reduce error in the modern regime? The authors argue that the
 "Occam's Razor" in deep learning is not defined by the number of parameters, but by the
 \textbf{smoothness} (norm) of the function.
 
