@@ -212,7 +212,7 @@ explicit penalties fail to constrain capacity.
 
 The authors also address the concept of curvature as a quality metric. While sharpness of minima is
 often cited as a predictor of generalization, the authors point out that in the linear case, the
-Hessian of the loss function is degenerate and identical for \textit{all} global optimal solutions.
+Hessian of the loss function is degenerate and identical for \textit{all} globally optimal solutions.
 Therefore, curvature cannot distinguish between a solution that generalizes well and one that
 overfits.
 
@@ -397,7 +397,7 @@ Dziugaite \& Roy operationalized via PAC-Bayes variance—with the classical the
 
 \subsection{Beyond Architecture: Data-Dependent Measures}
 
-Neyshabur et al.'s~\cite{neyshabur2017exploring} reinforce the consensus established by Zhang et
+Neyshabur et al.~\cite{neyshabur2017exploring} reinforce the consensus established by Zhang et
 al.~\cite{zhang2017understanding} that implicit regularization is the primary driver of
 generalization in deep learning. Since the architecture alone (and thus parameter count) allows for
 massive overfitting to noise, the algorithm must be biased toward a specific subset of solutions
@@ -578,7 +578,7 @@ number of parameters and distinct across three specific regimes:
 
 \subsection{The Mechanism: Implicit Regularization via Minimum Norm}
 
-Why does increasing capacity reduces error in the modern regime? The authors argue that the
+Why does increasing capacity reduce error in the modern regime? The authors argue that the
 "Occam's Razor" in deep learning is not defined by the number of parameters, but by the
 \textbf{smoothness} (norm) of the function.
 
