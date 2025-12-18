@@ -300,7 +300,7 @@ experiments on binary MNIST demonstrate:
 Although a gap remains between the bound and the true test error, the crucial contribution is that
 the bound is \textbf{nonvacuous} ($<1$). This serves as an existence proof that the capacity of the
 architecture alone does not dictate generalization; rather, the geometry of the specific solution
-found by optimization controls the error.
+found by SGD controls the error.
 
 \subsection{Nonvacuous bounds via PAC-Bayes optimization}
 
@@ -323,7 +323,7 @@ into a constrained optimization problem:
         variance or "width" of the weight distribution.
   \item
         \textbf{Bound Minimization:} Instead of minimizing training error alone, they minimize the
-        PAC-Bayes upper bound directly using gradient-based optimization. This creates a trade-off:
+        PAC-Bayes upper bound directly using stochastic gradient descent. This creates a trade-off:
         the optimizer seeks weights $w$ with low error while simultaneously choosing the variance $s$
         to balance empirical robustness under perturbations against the KL penalty.
   \item
@@ -339,14 +339,13 @@ This work provides the mathematical mechanism missing from
 Zhang et al.~\cite{zhang2017understanding}'s analysis. Zhang et al. noted that SGD finds
 generalizing solutions on true data but could not explain \emph{why} those solutions were distinct
 from the memorized solutions found on random labels. Dziugaite \& Roy~\cite{dziugaite2017computing}
-identify the distinguishing feature: \textbf{flat minima} (as witnessed by the ability to tolerate
-weight perturbations while maintaining low error).
+identify the distinguishing feature: \textbf{flat minima}.
 
 A minimum is considered "flat" if a large volume of weight space around it yields low error. In
-the PAC-Bayes framework, flatness permits a wider posterior (larger perturbations) without
-increasing the empirical error too much, which can lead to a substantially smaller information term
-$\KL(Q\|P)$. This aligns with an MDL-style intuition: solutions that remain accurate under coarser
-parameter precision are, in a precise sense, more compressible relative to the prior.
+the PAC-Bayes framework, a flat minimum allows the posterior variance $s$ to be large without
+increasing the empirical error. This connects directly to the Minimum Description Length (MDL)
+principle: large variance implies lower precision is required to encode the weights relative to the
+prior, resulting in a low $\KL(Q\|P)$ term.
 
 \begin{table}[h]
   \centering
@@ -355,12 +354,12 @@ parameter precision are, in a precise sense, more compressible relative to the p
     \textbf{Experiment}   & \textbf{Params} & \textbf{SNN Test Error} & \textbf{PAC-Bayes Bound}  & \textbf{KL Divergence} \\
     \midrule
     True Labels (T-600)   & 471K            & 3.4\%                   & \textbf{16.1\%}           & \textbf{5,144}         \\
-    True Labels (T-1200$^2$)  & 2.38M       & 3.5\%                   & \textbf{22.3\%}           & 8,558                  \\
+    True Labels (T-1200$^2$)  & 2.38M           & 3.5\%                   & \textbf{22.3\%}           & 8,558                  \\
     \midrule
     Random Labels (R-600) & 472K            & 50.3\%                  & \textbf{135.2\% (vacuous)} & \textbf{201,131}       \\
     \bottomrule
   \end{tabular}
-  \caption{Comparison of generalization bounds on True vs. Random labels (binary MNIST). The large difference in
+  \caption{Comparison of generalization bounds on True vs. Random labels. The large difference in
     KL divergence aligns with the observed generalization gap.}
 \end{table}
 
@@ -368,15 +367,20 @@ This result successfully differentiates the two regimes identified by
 Zhang et al.~\cite{zhang2017understanding}:
 \begin{itemize}
   \item
-        \textbf{Structured Data:} Optimization can locate solutions for which a relatively wide posterior
-        (large perturbations) preserves low empirical error, yielding a much smaller KL term and a nonvacuous bound.
+        \textbf{Structured Data:} SGD finds a "flat" minimum. The posterior $Q$ can cover a large
+        volume of the parameter space (low information complexity, low KL), resulting in a tight
+        generalization bound.
   \item
-        \textbf{Random Labels:} To keep the stochastic network accurate on random labels, the learned posterior must be
-        extremely concentrated (tiny effective perturbations), driving the KL divergence (and thus the bound) to become vacuous.
+        \textbf{Random Labels:} SGD finds a "sharp" minimum. To maintain low training error on
+        random labels, the weights must be extremely precise to navigate the complex, non-smooth
+        loss landscape of pure noise. This forces the posterior variance $s$ to be tiny, causing
+        the KL divergence to explode (from $\sim$5,000 to $\sim$200,000).
 \end{itemize}
 
-Thus, the PAC-Bayes objective acts as a quantitative witness to solution sensitivity under perturbations,
-correctly separating the random-label regime from the structured-data regime despite both achieving near-zero training error.
+Thus, the PAC-Bayes bound acts as a "sharpness detector," correctly predicting that the random
+label solution will not generalize, despite having zero training error. This suggests that the
+"puzzle" of generalization is resolved not by counting parameters, but by measuring the
+compressibility of the solution found by the optimization algorithm.
 
 \section{Implicit regularization and norm-based complexity}
 
@@ -479,31 +483,45 @@ The paper resolves the ambiguity around "flat minima" by formally connecting sha
 PAC-Bayes framework used by Dziugaite \& Roy~\cite{dziugaite2017computing}. They show that
 "flatness" cannot be considered in isolation from the weight magnitude.
 
-The authors show that the PAC-Bayes generalization bound can be decomposed into two competing
-terms:
+To state this connection precisely, let $L(\cdot)$ denote population loss and let $\hat{L}_S(\cdot)$
+denote empirical loss on a sample $S$ of size $m$. Let $P$ be a prior over parameters and let $Q$
+denote the distribution of parameters induced by a perturbation $\nu$ around $w$ (i.e., $w' = w+\nu$
+so that $w' \sim Q$). Then a PAC-Bayes bound yields a tradeoff of the form
 
 \begin{equation}
-  \text{Generalization Error} \lesssim \underbrace{\mathbb{E}_{\nu}[L(w+\nu)]
-    - L(w)}_{\text{Expected Sharpness}}
-  + \underbrace{4\sqrt{\frac{1}{m}\text{KL}(w+\nu \| P)}}_{\text{Information Penalty}}
+  \E_{\nu}\!\left[L(w+\nu)\right]
+  \le
+  \E_{\nu}\!\left[\hat{L}_S(w+\nu)\right]
+  +4\sqrt{\frac{\KL(Q\|P)+\ln\left(\frac{2m}{\delta}\right)}{m}}.
 \end{equation}
 
-When the perturbation $\nu$ is Gaussian with variance $\sigma^2$ and the prior $P$ is a standard
-Gaussian centered at initialization, the KL divergence term becomes proportional to
-$\frac{\|w\|_2^2}{\sigma^2}$. This synthesis reveals the mechanism of generalization as a balance:
+Using the identity
+\[
+  \E_{\nu}\!\left[\hat{L}_S(w+\nu)\right]
+  =
+  \hat{L}_S(w)
+  +
+  \underbrace{\left(\E_{\nu}\!\left[\hat{L}_S(w+\nu)\right]-\hat{L}_S(w)\right)}_{\text{Expected (empirical) sharpness}},
+\]
+highlights the competing roles of perturbation-robustness (expected empirical sharpness) and the
+information/complexity penalty $\KL(Q\|P)$.
+
+In the special case where $P=\mathcal{N}(0,\sigma^2 I)$ and $Q=\mathcal{N}(w,\sigma^2 I)$ (i.e.,
+$\nu\sim\mathcal{N}(0,\sigma^2 I)$), one has $\KL(Q\|P)=\|w\|_2^2/(2\sigma^2)$. If instead the prior
+is centered at initialization $w_0$, then the corresponding term depends on $\|w-w_0\|_2$ (and any
+variance-mismatch terms), rather than $\|w\|_2$ alone. This synthesis reveals the mechanism of
+generalization as a balance:
 
 \begin{itemize}
   \item
-        \textbf{The Trade-off:} To minimize the bound, one acts on the ratio. A large perturbation
-        variance $\sigma$ (indicating a flat minimum) is desirable to minimize the KL term, but
-        only if the loss remains low (high robustness). Conversely, having a small weight norm
-        $\|w\|_2$ allows one to tolerate sharper minima (smaller $\sigma$) without paying a massive
-        information penalty.
+        \textbf{The Trade-off:} A large perturbation variance $\sigma$ (indicating a flatter region)
+        is desirable to reduce the KL penalty, but only if the empirical loss remains low under such
+        perturbations (high robustness). Conversely, a smaller weight scale (relative to the prior)
+        allows one to tolerate sharper solutions without paying an overwhelming information penalty.
   \item
         \textbf{The Conclusion:} Generalization is not determined by sharpness alone (which is
-        scale-variant), nor by norm alone, but by the \textbf{ratio of the weight norm to the
-          flatness of the minimum}. This unified view incorporates both Dziugaite \&
-        Roy~\cite{dziugaite2017computing}'s "flatness" and classical "margin/norm" theory.
+        scale-variant), nor by norm alone, but by how perturbation-robustness and an information
+        penalty trade off under a properly specified (scale-aware) bound.
 \end{itemize}
 
 \subsection{Validation via Confusion Sets}
@@ -514,18 +532,14 @@ on datasets containing a fixed number of true labels mixed with an increasing pe
 labels. All networks achieve zero training error (global minima), but their test error varies
 drastically as the noise level increases.
 
+Their results support two key takeaways:
 \begin{itemize}
   \item
-        Many natural candidates (including several norm-only or sharpness-only quantities) are insufficient
-        to explain all observed behaviors once scale and width effects are accounted for.
+        Many natural candidates (including several norm-only or sharpness-only quantities) are insufficient to explain all observed behaviors once scale and width effects are accounted for.
   \item
         Combinations of norms with perturbation-based robustness (including PAC-Bayes-motivated ``joint'' measures)
-        capture substantial portions of the observed trends, but still fail in some settings
-        (e.g., for sufficiently large networks).
+        capture substantial portions of the observed trends, but still fail in some settings (e.g., for sufficiently large networks).
 \end{itemize}
-
-This refines Zhang et al.~\cite{zhang2017understanding}'s puzzle: identifying the right complexity measure is itself nontrivial,
-and likely requires simultaneously incorporating scale, margin, and robustness.
 
 \section{Reconciling Interpolation: The Double Descent}
 
@@ -571,10 +585,8 @@ Why does increasing capacity reduce error in the modern regime? The authors argu
 \textbf{smoothness} (norm) of the function.
 
 In the overparameterized regime, the system is underdetermined ($Xw=y$), meaning there are
-infinitely many solutions that achieve zero training error. In linear regression / kernel-style
-interpolation settings, a canonical inductive bias is to select a minimum-$\ell_2$-norm
-interpolating solution (and gradient methods from small or zero initialization often recover it in
-these settings). This bias can be written as:
+infinitely many solutions that achieve zero training error. The optimization algorithm (e.g., SGD)
+does not pick a random solution; it implicitly solves a constrained optimization problem:
 
 \begin{equation}
   \min_{w} \|w\| \quad \text{subject to} \quad Xw = y
@@ -585,11 +597,11 @@ effectively fits the data with the "smoothest" possible function.
 
 Paradoxically, adding more parameters (increasing $d$) expands the solution space. A larger
 function space contains \emph{more} candidate functions that interpolate the data. Crucially, this
-expanded set can include interpolants with smaller norms than were available in the smaller space.
-Since the optimizer prefers low-norm solutions in many overparameterized settings, expanding the
-search space can allow it to find a "simpler" (lower norm) interpolant, thereby reducing test error.
-This explains why the curve descends in the modern regime: the "effective complexity" (norm) can
-decrease even as the "parameter complexity" ($d$) increases.
+expanded set includes functions with even smaller norms (smoother curvature) than were available in
+the smaller space. Since the optimizer always selects the minimum norm candidate, expanding the
+search space allows it to find a "simpler" (lower norm) interpolant, thereby reducing test error.
+This explains why the curve descends in the modern regime: the "effective complexity" (norm) is
+decreasing even as the "parameter complexity" ($d$) increases.
 
 \subsection{Synthesizing the Narrative}
 
@@ -599,17 +611,21 @@ papers into a cohesive theory:
 
 \begin{itemize}
   \item
-        \textbf{Revisiting Zhang et al.:} Zhang et al.~\cite{zhang2017understanding} observed that networks can "memorize" (interpolate) random noise. Belkin et al.~\cite{belkin2019reconciling} clarify that interpolation itself is compatible with good generalization, and that test risk can vary non-monotonically around the interpolation threshold.
+        \textbf{Revisiting Zhang et al.:} Zhang et al.~\cite{zhang2017understanding} observed that networks can "memorize" (interpolate) random noise. Belkin et al.~\cite{belkin2019reconciling} clarify that this is not an anomaly but the expected behavior at the interpolation threshold. The key difference lies in the "cost" of interpolation: on structured data, the "memorization" occurs via a smooth, low-norm function (Modern Regime); on random labels, the interpolation forces a high-norm, oscillatory function (Critical Regime), resulting in poor test performance.
   \item
-        \textbf{Validating Neyshabur et al.:} Neyshabur et al.'s~\cite{neyshabur2017exploring} argued that norms and robustness, not parameter counts alone, are central to capacity control. Belkin et al.~\cite{belkin2019reconciling} support this shift by emphasizing that function class capacity does not directly capture inductive bias, and that interpolating predictors in richer classes can generalize better.
+        \textbf{Validating Neyshabur et al.:} Neyshabur et al.'s~\cite{neyshabur2017exploring} argued that norms, not parameter counts, control capacity. Belkin et al.~\cite{belkin2019reconciling} confirm this mechanism geometrically. The "Double Descent" shows that while parameter count increases monotonically, the \emph{norm} of the solution peaks at the interpolation threshold (where the model is forced to stretch to fit data) and then decreases in the overparameterized regime (where the model relaxes into a smooth interpolant). Thus, Neyshabur's norm-based measures correctly predict the descent.
   \item
-        \textbf{Connecting to Dziugaite \& Roy:} Dziugaite \& Roy~\cite{dziugaite2017computing} identified perturbation-robustness (flatness, in a PAC-Bayes sense) as a key witness to generalization. In Belkin's framework, moving deeper into the overparameterized regime can make it easier for optimization to locate interpolants that match the problem's inductive bias, which is consistent with improved robustness in many settings.
+        \textbf{Connecting to Dziugaite \& Roy:} Dziugaite \& Roy~\cite{dziugaite2017computing} identified "flat minima" as the key to generalization. In Belkin's framework, the minimum norm solution in a high-dimensional space corresponds to the "flattest" or smoothest interpolant. By expanding the parameter space ($d \gg n$), we allow the optimizer to access these flatter, more robust solutions that were inaccessible in the constrained, critical regime.
 \end{itemize}
 
 Taken together, double descent inverts the classical wisdom.
-Overparameterization is not always a liability to be bounded, but can be a feature that enables the finding of smoother (lower norm) interpolants.
-The most severe generalization failures often occur near the interpolation threshold ($d \approx n$), while beyond it,
-implicit regularization mechanisms and inductive bias can dominate, allowing test error to decrease even as training error remains near zero.
+Overparameterization is not a liability to be bounded (as Zhang et al.'s initial puzzle suggested),
+but a feature that enables the finding of smoother (lower norm) interpolants. The "catastrophic
+overfitting" predicted by classical theory occurs only at the interpolation threshold ($d \approx
+ n$), where the inductive bias of the model clashes with the noise in the data. Beyond it, the
+implicit regularization mechanisms identified by Neyshabur and Dziugaite \&
+Roy~\cite{dziugaite2017computing} dominate, driving test error down even as training error remains
+rigidly at zero.
 
 \section{Current Frontiers: Bridging Theory and Practice}
 
@@ -623,29 +639,29 @@ Neyshabur et al.'s~\cite{neyshabur2017exploring} hypothesized that SGD possesses
 inductive bias toward low-norm solutions, but they did not rigorously prove the mechanism for
 classification. Subsequent work has formalized this intuition. \textbf{Soudry et al.
  (2018)}~\cite{soudry2018implicit} proved that for linearly separable data, gradient descent on the
-logistic loss has weights whose norm diverges while their \emph{direction} converges asymptotically
-to the $l_2$ max-margin solution, effectively formalizing a max-margin implicit bias without explicit regularization.
-\textbf{Lyu and Li (2020)}~\cite{lyu2019gradient}
-extended this analysis to homogeneous deep neural networks, confirming that gradient flow maximizes
-margin in deep architectures.
+logistic loss converges asymptotically to the \emph{max-margin} solution (the $l_2$ minimum norm
+direction), effectively proving that the algorithm itself minimizes complexity without explicit
+regularization. \textbf{Lyu and Li (2020)}~\cite{lyu2019gradient} extended this analysis to
+homogeneous deep neural networks, confirming that gradient flow maximizes margin in deep
+architectures.
 
 \subsection{The Mathematics of Benign Overfitting}
 Belkin et al.~\cite{belkin2019reconciling} provided the empirical framework for double descent but
 left the mathematical conditions for "benign overfitting" (interpolating noise without hurting
 prediction) open. \textbf{Bartlett et al. (2020)}~\cite{bartlett2020benign} provided the first
-rigorous characterization of this phenomenon in high-dimensional linear regression. They identify
-conditions on the covariance/eigenspectrum under which minimum-norm interpolating estimators can
-still achieve low prediction error, mathematically validating portions of the interpolation regime.
+rigorous characterization of this phenomenon in high-dimensional linear regression. They identified
+precise conditions on the data covariance matrix—specifically, the existence of many low-variance
+directions—that allow the estimator to "hide" the noise in dimensions that do not affect
+prediction, mathematically validating Belkin's interpolation regime.
 
 \subsection{Operationalizing Flatness: Sharpness-Aware Minimization}
-Dziugaite \& Roy~\cite{dziugaite2017computing} identified perturbation-robustness as a witness to
-generalization and optimized PAC-Bayes objectives to obtain nonvacuous bounds, but they did not
-propose a general-purpose deterministic training rule explicitly targeting flatness.
-\textbf{Foret et al. (2021)}~\cite{foret2021sharpness} closed the loop between theory and practice
-by introducing \textbf{Sharpness-Aware Minimization (SAM)}. By explicitly optimizing for both the
-loss value and the flatness of the loss landscape (minimizing the maximum loss in a neighborhood),
-SAM consistently improves generalization across state-of-the-art benchmarks, serving as strong
-empirical validation of the robustness/flatness perspective.
+Dziugaite \& Roy~\cite{dziugaite2017computing} identified "flatness" as a witness to
+generalization, but their work was primarily diagnostic (computing bounds post-hoc). \textbf{Foret
+ et al. (2021)}~\cite{foret2021sharpness} closed the loop between theory and practice by
+introducing \textbf{Sharpness-Aware Minimization (SAM)}. By explicitly optimizing for both the loss
+value and the flatness of the loss landscape (minimizing the maximum loss in a neighborhood), SAM
+consistently improves generalization across state-of-the-art benchmarks, serving as strong
+empirical validation of the flatness hypothesis.
 
 \subsection{The Limits of Linearization: NTK vs. Feature Learning}
 Finally, a major theoretical gap involves the dynamics of training. \textbf{Jacot et al.
@@ -653,8 +669,8 @@ Finally, a major theoretical gap involves the dynamics of training. \textbf{Jaco
 "lazy training" regime where infinite-width networks behave like linear models and weights barely
 move. However, modern success relies on "feature learning" where weights evolve significantly.
 \textbf{Chizat et al. (2019)}~\cite{chizat2019lazy} formalized the distinction between the "lazy"
-(kernel) regime and the "rich" (feature learning) regime, arguing that important behaviors of deep
-learning can require escaping the kernel regime—a nuance that static complexity measures often miss.
+(kernel) regime and the "rich" (feature learning) regime, arguing that true generalization in deep
+learning comes from escaping the kernel regime—a nuance that static complexity measures often miss.
 
 \section{Conclusion}
 
@@ -663,9 +679,10 @@ al.~\cite{belkin2019reconciling} represents a paradigm shift in learning theory.
 dismantled the utility of architecture-dependent complexity measures. Dziugaite \&
 Roy~\cite{dziugaite2017computing} proved that theory was not dead, but needed to be data-dependent
 and algorithmic (PAC-Bayes). Neyshabur et al.'s~\cite{neyshabur2017exploring} identified the
-central role of scale, norms, and robustness in candidate explanations, while emphasizing that no single measure yet explains all phenomena. Finally, Belkin
-et al.~\cite{belkin2019reconciling} placed these insights into a unified framework, showing that
-the "generalization puzzle" is closely tied to the behavior of interpolating solutions and inductive bias in the overparameterized regime.
+specific geometric properties (norm and sharpness) that drive this data dependence. Finally, Belkin
+et al.~\cite{belkin2019reconciling} placed these insights into a unified framework, showing that the
+"generalization puzzle" is actually a predictable property of minimum-norm interpolants in the
+overparameterized regime.
 
 The synthesis of these works confirms that generalization in deep learning is not a property of the
 model class alone, but of a combination between \textbf{architecture, data, and the algorithm}.
