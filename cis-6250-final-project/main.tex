@@ -186,8 +186,9 @@ parameters that boost performance rather than fundamental constraints on capacit
         with augmentation still fit random labels (undesirably fitting on noise with no
         predictive signal).
   \item
-        \textbf{Batch Normalization:} The authors note that Batch Normalization stabilizes training dynamics
-        and can improve generalization in their experiments, but it does not prevent the network from memorizing noise.
+        \textbf{Batch Normalization:} The authors note that while Batch Normalization stabilizes
+        learning dynamics, its impact on generalization performance is marginal (3-4\% on CIFAR10)
+        compared to the baseline, and it does not prevent the network from memorizing noise.
 \end{itemize}
 
 Ultimately, the absence of all explicit regularization does not imply poor generalization; models
@@ -199,14 +200,14 @@ learning models appear to default to generalizing solutions naturally.
 
 Since explicit regularizers fail to explain the phenomenon, the authors investigate
 \textit{implicit} regularization introduced by the optimization algorithm itself. By appealing to
-linear models, the authors analyze (stochastic) gradient methods applied to the
+linear models, the authors analyze Stochastic Gradient Descent (SGD) applied to the
 overparameterized linear system $Xw=y$.
 
-If initialized at zero, the iterates are always linear combinations of the data points $x_i$,
-constraining the weight vector $w$ to lie in the span of the data. Consequently, in these linear settings
-gradient-based optimization converges to the minimum $l_2$-norm solution among the infinite global minima.
-This implies that the algorithm itself biases the solution toward a specific "simple" model, effectively solving the
-kernel equation $XX^T\alpha = y$. In other words, gradient methods supply implicit regularization even when
+If initialized at zero, SGD updates are always linear combinations of the data points $x_i$,
+constraining the weight vector $w$ to lie in the span of the data. Consequently, SGD converges
+specifically to the minimum $l_2$-norm solution among the infinite global minima. This implies that
+the algorithm itself biases the solution toward a specific "simple" model, effectively solving the
+kernel equation $XX^T\alpha = y$. In other words, SGD supplies implicit regularization even when
 explicit penalties fail to constrain capacity.
 
 The authors also address the concept of curvature as a quality metric. While sharpness of minima is
@@ -292,8 +293,8 @@ experiments on binary MNIST demonstrate:
         Standard VC-dimension bounds for these architectures estimate the capacity in the hundreds
         of millions, predicting vacuous generalization errors.
   \item
-        \textbf{Nontrivial Guarantees:} While the empirical test error is small, the authors compute PAC-Bayes bounds
-        in the range of \textbf{16--22\%} for their stochastic networks.
+        \textbf{Nontrivial Guarantees:} While the empirical test error is approximately
+        \textbf{3\%}, the authors compute PAC-Bayes bounds in the range of \textbf{16--22\%}.
 \end{itemize}
 
 Although a gap remains between the bound and the true test error, the crucial contribution is that
@@ -354,7 +355,7 @@ parameter precision are, in a precise sense, more compressible relative to the p
     \textbf{Experiment}   & \textbf{Params} & \textbf{SNN Test Error} & \textbf{PAC-Bayes Bound}  & \textbf{KL Divergence} \\
     \midrule
     True Labels (T-600)   & 471K            & 3.4\%                   & \textbf{16.1\%}           & \textbf{5,144}         \\
-    True Labels (T-(1200,1200))  & 2.38M       & 3.5\%                   & \textbf{22.3\%}           & 8,558                  \\
+    True Labels (T-1200$^2$)  & 2.38M       & 3.5\%                   & \textbf{22.3\%}           & 8,558                  \\
     \midrule
     Random Labels (R-600) & 472K            & 50.3\%                  & \textbf{135.2\% (vacuous)} & \textbf{201,131}       \\
     \bottomrule
@@ -478,45 +479,31 @@ The paper resolves the ambiguity around "flat minima" by formally connecting sha
 PAC-Bayes framework used by Dziugaite \& Roy~\cite{dziugaite2017computing}. They show that
 "flatness" cannot be considered in isolation from the weight magnitude.
 
-To state this connection precisely, let $L(\cdot)$ denote population loss and let $\hat{L}_S(\cdot)$
-denote empirical loss on a sample $S$ of size $m$. Let $P$ be a prior over parameters and let $Q$
-denote the distribution of parameters induced by a perturbation $\nu$ around $w$ (i.e., $w' = w+\nu$
-so that $w' \sim Q$). Then a PAC-Bayes bound yields a tradeoff of the form
+The authors show that the PAC-Bayes generalization bound can be decomposed into two competing
+terms:
 
 \begin{equation}
-  \E_{\nu}\!\left[L(w+\nu)\right]
-  \le
-  \E_{\nu}\!\left[\hat{L}_S(w+\nu)\right]
-  +4\sqrt{\frac{\KL(Q\|P)+\ln\left(\frac{2m}{\delta}\right)}{m}}.
+  \text{Generalization Error} \lesssim \underbrace{\mathbb{E}_{\nu}[L(w+\nu)]
+    - L(w)}_{\text{Expected Sharpness}}
+  + \underbrace{4\sqrt{\frac{1}{m}\text{KL}(w+\nu \| P)}}_{\text{Information Penalty}}
 \end{equation}
 
-Using the identity
-\[
-  \E_{\nu}\!\left[\hat{L}_S(w+\nu)\right]
-  =
-  \hat{L}_S(w)
-  +
-  \underbrace{\left(\E_{\nu}\!\left[\hat{L}_S(w+\nu)\right]-\hat{L}_S(w)\right)}_{\text{Expected (empirical) sharpness}},
-\]
-highlights the competing roles of perturbation-robustness (expected empirical sharpness) and the
-information/complexity penalty $\KL(Q\|P)$.
-
-In the special case where $P=\mathcal{N}(0,\sigma^2 I)$ and $Q=\mathcal{N}(w,\sigma^2 I)$ (i.e.,
-$\nu\sim\mathcal{N}(0,\sigma^2 I)$), one has $\KL(Q\|P)=\|w\|_2^2/(2\sigma^2)$. If instead the prior
-is centered at initialization $w_0$, then the corresponding term depends on $\|w-w_0\|_2$ (and any
-variance-mismatch terms), rather than $\|w\|_2$ alone. This synthesis reveals the mechanism of
-generalization as a balance:
+When the perturbation $\nu$ is Gaussian with variance $\sigma^2$ and the prior $P$ is a standard
+Gaussian centered at initialization, the KL divergence term becomes proportional to
+$\frac{\|w\|_2^2}{\sigma^2}$. This synthesis reveals the mechanism of generalization as a balance:
 
 \begin{itemize}
   \item
-        \textbf{The Trade-off:} A large perturbation variance $\sigma$ (indicating a flatter region)
-        is desirable to reduce the KL penalty, but only if the empirical loss remains low under such
-        perturbations (high robustness). Conversely, a smaller weight scale (relative to the prior)
-        allows one to tolerate sharper solutions without paying an overwhelming information penalty.
+        \textbf{The Trade-off:} To minimize the bound, one acts on the ratio. A large perturbation
+        variance $\sigma$ (indicating a flat minimum) is desirable to minimize the KL term, but
+        only if the loss remains low (high robustness). Conversely, having a small weight norm
+        $\|w\|_2$ allows one to tolerate sharper minima (smaller $\sigma$) without paying a massive
+        information penalty.
   \item
         \textbf{The Conclusion:} Generalization is not determined by sharpness alone (which is
-        scale-variant), nor by norm alone, but by how perturbation-robustness and an information
-        penalty trade off under a properly specified (scale-aware) bound.
+        scale-variant), nor by norm alone, but by the \textbf{ratio of the weight norm to the
+          flatness of the minimum}. This unified view incorporates both Dziugaite \&
+        Roy~\cite{dziugaite2017computing}'s "flatness" and classical "margin/norm" theory.
 \end{itemize}
 
 \subsection{Validation via Confusion Sets}
@@ -527,10 +514,16 @@ on datasets containing a fixed number of true labels mixed with an increasing pe
 labels. All networks achieve zero training error (global minima), but their test error varies
 drastically as the noise level increases.
 
-Their results support two key takeaways: (i) many natural candidates (including several norm-only or sharpness-only
-quantities) are insufficient to explain all observed behaviors once scale and width effects are accounted for, and
-(ii) combinations of norms with perturbation-based robustness (including PAC-Bayes-motivated ``joint'' measures)
-capture substantial portions of the observed trends, but still fail in some settings (e.g., for sufficiently large networks).
+\begin{itemize}
+  \item
+        Many natural candidates (including several norm-only or sharpness-only quantities) are insufficient
+        to explain all observed behaviors once scale and width effects are accounted for.
+  \item
+        Combinations of norms with perturbation-based robustness (including PAC-Bayes-motivated ``joint'' measures)
+        capture substantial portions of the observed trends, but still fail in some settings
+        (e.g., for sufficiently large networks).
+\end{itemize}
+
 This refines Zhang et al.~\cite{zhang2017understanding}'s puzzle: identifying the right complexity measure is itself nontrivial,
 and likely requires simultaneously incorporating scale, margin, and robustness.
 
@@ -566,7 +559,9 @@ number of parameters and distinct across three specific regimes:
         size ($d \gg n$), the risk decreases again—often below the best performance of the
         classical regime. This is the "double descent." The authors show this phenomenon is
         universal, appearing not just in Neural Networks, but also in Random Forests and Random
-        Fourier Features.
+        Fourier Features. For instance, they demonstrate that boosting random trees beyond the
+        point of zero training error (interpolation) continues to reduce test risk, directly
+        contradicting the classical view that zero training error implies overfitting.
 \end{enumerate}
 
 \subsection{The Mechanism: Implicit Regularization via Minimum Norm}
@@ -658,7 +653,8 @@ Finally, a major theoretical gap involves the dynamics of training. \textbf{Jaco
 "lazy training" regime where infinite-width networks behave like linear models and weights barely
 move. However, modern success relies on "feature learning" where weights evolve significantly.
 \textbf{Chizat et al. (2019)}~\cite{chizat2019lazy} formalized the distinction between the "lazy"
-(kernel) regime and the "rich" (feature learning) regime, arguing that important behaviors of deep learning can require escaping the kernel regime—a nuance that static complexity measures often miss.
+(kernel) regime and the "rich" (feature learning) regime, arguing that important behaviors of deep
+learning can require escaping the kernel regime—a nuance that static complexity measures often miss.
 
 \section{Conclusion}
 
